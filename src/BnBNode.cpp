@@ -98,7 +98,8 @@ void BnBNode::initializeGurobiModel() const {
         sharedModel->set(GRB_DoubleParam_TimeLimit, timeLimit_*depthFactor);
     }
 
-    sharedModel->set(GRB_IntParam_Presolve, 0);    
+    sharedModel->set(GRB_IntParam_Presolve, 0); 
+
     sharedModel->set(GRB_IntParam_Cuts, 0);         
     sharedModel->set(GRB_IntParam_MIPFocus, 1);    
 

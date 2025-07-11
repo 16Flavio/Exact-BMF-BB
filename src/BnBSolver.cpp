@@ -173,20 +173,20 @@ void BnBSolver::run() {
                 
                 if (!assignments.empty()) {
                     BnBNode child = node.branchMultiple(assignments);
-                    cout << "[#Explored: " << exploredNodes_
+                    /*cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << child.depth()
                     << ", LB: " << child.lb()
                     << ", Cost: " << child.cost()
                     << ", BestCost: " << bestCost_
                     << ", QueueSize: " << pq.size()
                     << "\n";
-                    child.printWH();
+                    //child.printWH();*/
                     push_if_valid(child);
                 }
             }
         }
 
-        if (exploredNodes_ % 10 == 0) {
+        /*if (exploredNodes_ % 10 == 0) {
             cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << node.depth()
                     << ", LB: " << node.lb()
@@ -195,7 +195,7 @@ void BnBSolver::run() {
                     << ", QueueSize: " << pq.size()
                     << "\n";
             //node.printWH();
-        }
+        }*/
 
         exploredNodes_ ++;
 
