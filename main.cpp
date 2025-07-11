@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     solver.run();
 
     const auto &bestSols = solver.getBestSolutions();
-    cout << "Time to solve (ms): " << solver.getElapsedTime() << "\n";
+    cout << "Time to solve (s): " << solver.getElapsedTime()/1000 << "\n";
     cout << "Best cost find: " << bestSols.front().cost << "\n";
     cout << "Node explored: " << solver.getExploredNodes() << "\n";
 

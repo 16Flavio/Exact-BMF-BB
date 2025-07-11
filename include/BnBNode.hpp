@@ -47,8 +47,6 @@ class BnBNode {
     static inline GRBModel* sharedModel_halfleafW = nullptr;
     static inline vector<vector<GRBVar>> Whalf, Hhalf, Zhalf, Dhalf;
 
-    vector<int> colSum_, rem_;
-
 public:
 
     explicit BnBNode(const BMFInstance &instance)
@@ -74,9 +72,6 @@ public:
 
     lb_ = computeGurobiLB();
     //lb_ = computeLowerBound();
-
-    colSum_.assign(r_,0);
-    rem_.assign(r_,m_);
 }
 
     BnBNode(const BnBNode &other, const vector<pair<int, int>>& assignments)
@@ -92,9 +87,7 @@ public:
           H_mask_(other.H_mask_),
           Xtilde_(other.Xtilde_),
           lastH_(other.lastH_),
-          lastW_(other.lastW_),
-          colSum_(other.colSum_),
-          rem_(other.rem_)
+          lastW_(other.lastW_)
     {
         int countW = 0, countH = 0;
         bool possible = true;
@@ -122,23 +115,6 @@ public:
 
                 W_mask_[word] |= mask;
                 countW++;
-
-                int i = idx/r_;
-                int k = idx%r_;
-                int val = getW(i,k);
-                colSum_[k] += val;
-                rem_[k] -= 1;
-
-                for (int j : {k-1, k}) {
-                    if (j < 0 || j >= r_) continue;
-
-                    int sup_k  = colSum_[j] + rem_[j];
-                    int inf_j  = colSum_[j+1];
-                    if (sup_k < inf_j) {
-                        
-                        possible = false;
-                    }
-                }
 
             } else {
                 int idxH = idx - totalW();
@@ -234,13 +210,9 @@ public:
                 }
             }
         }
-        if(possible){
-            lb_ = computeGurobiLB();
-            //lb_ = computeLowerBound();
-        }else{
-            lb_ = numeric_limits<double>::max();
-        }
         
+        lb_ = computeGurobiLB();
+        //lb_ = computeLowerBound();
     }
 
     BnBNode branchMultiple(const vector<pair<int, int>>& assignments) const {

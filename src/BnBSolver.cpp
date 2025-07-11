@@ -62,6 +62,8 @@ void BnBSolver::run() {
             if (cost < bestCost_) {
                 bestCost_ = cost;
                 bestSolutions_.clear();
+                cout << "Leaf found with cost of " << cost << "\n";
+                cout << "Actual best cost:" << bestCost_ << "\n";
             }
             if (cost == bestCost_) {
                 Solution sol;
@@ -75,13 +77,11 @@ void BnBSolver::run() {
                     for (int j = 0; j < n; ++j)
                         sol.H[k*n + j] = (node.getH(k,j) == 1);
                 bestSolutions_.push_back(sol);
-                cout << "Leaf found with cost of " << cost << "\n";
-                cout << "Actual best cost:" << bestCost_ << "\n";
             }
             continue;
         }else if (node.isHalfLeaf()) {
             if (node.remainingVariablesW() == 0) {
-                /*for (int j = 0; j < n; j++) {
+                for (int j = 0; j < n; j++) {
                     if (!node.isFixedHColumn(j)) {
                         for (const auto& possibility : possibilities) {
                             uint64_t b = possibility.second;
@@ -100,20 +100,21 @@ void BnBSolver::run() {
                         }
                         break;
                     }
-                }*/
-                Solution sol = node.computeHalfWFixed();
+                }
+                /*Solution sol = node.computeHalfWFixed();
+                cout << sol << "\n";
                 int cost = sol.cost;
                 if (cost < bestCost_) {
                     bestCost_ = cost;
                     bestSolutions_.clear();
-                }
-                if (cost == bestCost_) {
-                    bestSolutions_.push_back(sol);
                     cout << "Leaf found with cost of " << cost << "\n";
                     cout << "Actual best cost:" << bestCost_ << "\n";
                 }
+                if (cost == bestCost_) {
+                    bestSolutions_.push_back(sol);
+                }*/
             }else if(node.remainingVariablesH() == 0){
-                /*for (int i = 0; i < m; i++) {
+                for (int i = 0; i < m; i++) {
                     if (!node.isFixedWRow(i)) {
                         for (const auto& possibility : possibilities) {
                             uint64_t a = possibility.first;
@@ -132,18 +133,19 @@ void BnBSolver::run() {
                         }
                         break;
                     }
-                }*/
-                Solution sol = node.computeHalfHFixed();
+                }
+                /*Solution sol = node.computeHalfHFixed();
+                cout << sol << "\n";
                 int cost = sol.cost;
                 if (cost < bestCost_) {
                     bestCost_ = cost;
                     bestSolutions_.clear();
-                }
-                if (cost == bestCost_) {
-                    bestSolutions_.push_back(sol);
                     cout << "Leaf found with cost of " << cost << "\n";
                     cout << "Actual best cost:" << bestCost_ << "\n";
                 }
+                if (cost == bestCost_) {
+                    bestSolutions_.push_back(sol);
+                }*/
             }
         }
         else {
@@ -151,10 +153,11 @@ void BnBSolver::run() {
             int j = node.depth();
             
             for (const auto& possibility : possibilities) {
+                
                 uint64_t a = possibility.first;
                 uint64_t b = possibility.second;
                 vector<pair<int, int>> assignments;
-                
+
                 for (int k = 0; k < r; k++) {
                     if (!node.isFixedW(i, k)) {
                         int idxW = i * r + k;
@@ -170,7 +173,7 @@ void BnBSolver::run() {
                         assignments.push_back({idxH, bit});
                     }
                 }
-                
+
                 if (!assignments.empty()) {
                     BnBNode child = node.branchMultiple(assignments);
                     /*cout << "[#Explored: " << exploredNodes_
@@ -186,7 +189,7 @@ void BnBSolver::run() {
             }
         }
 
-        /*if (exploredNodes_ % 10 == 0) {
+        /*if (exploredNodes_ <= 30) {
             cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << node.depth()
                     << ", LB: " << node.lb()
@@ -194,7 +197,7 @@ void BnBSolver::run() {
                     << ", BestCost: " << bestCost_
                     << ", QueueSize: " << pq.size()
                     << "\n";
-            //node.printWH();
+            node.printWH();
         }*/
 
         exploredNodes_ ++;
