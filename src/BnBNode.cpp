@@ -392,27 +392,29 @@ int BnBNode::computePartialCost() const {
 }
 
 bool BnBNode::checkSymmetry() const {
-    vector<int> sums(r_, 0);
-    vector<bool> complete(r_, true);
+    vector<pair<int, int>> column_ranges(r_);
     
     for (int k = 0; k < r_; k++) {
+        int fixed_sum = 0;
+        int free_count = 0;
         for (int i = 0; i < m_; i++) {
             if (isFixedW(i, k)) {
-                sums[k] += getW(i, k);
+                fixed_sum += getW(i, k);
             } else {
-                complete[k] = false;
+                free_count++;
             }
         }
+        column_ranges[k] = {fixed_sum, fixed_sum + free_count};
     }
-    
+
     for (int k = 0; k < r_ - 1; k++) {
-        if (complete[k] && complete[k+1] && sums[k] < sums[k+1]) {
-            return false;
+        if (column_ranges[k].second < column_ranges[k+1].first) {
+            return false;  
         }
     }
-    
     return true;
 }
+
 
 void BnBNode::storeLastSolution(){
     lastW_.resize(m_, vector<double>(r_));

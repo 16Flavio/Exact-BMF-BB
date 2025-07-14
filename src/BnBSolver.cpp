@@ -5,7 +5,7 @@ using namespace std;
 
 BnBSolver::BnBSolver(const BMFInstance &instance, const Solution &initialSol)
     : instance_(instance), bestSolutions_(), bestCost_(initialSol.cost), elapsedMs_(0.0) {
-    //bestSolutions_.push_back(initialSol);
+    bestSolutions_.push_back(initialSol);
 }
 
 void BnBSolver::run() {
@@ -24,17 +24,21 @@ void BnBSolver::run() {
     pq.push(BnBNode(instance_)); 
 
     auto push_if_valid = [&](const BnBNode& child) {
-        if (!(child.lb() > bestCost_ || (child.cost() > bestCost_ && !child.isLeaf())) && child.checkSymmetry()){  
+        if (!(child.lb() >= bestCost_ || (child.cost() >= bestCost_ && !child.isLeaf())) && child.checkSymmetry()){  
             pq.push(child);
-        }/*else{
-            cout << "[#Explored: " << exploredNodes
+        }/*else if(child.depth() == 7){
+            cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << child.depth()
                     << ", LB: " << child.lb()
                     << ", Cost: " << child.cost()
                     << ", BestCost: " << bestCost_
                     << ", QueueSize: " << pq.size()
                     << "\n";
-            cout << "lb is too high for child\n";
+            child.printWH();
+        }*/
+        /*else if(!child.checkSymmetry()){
+            cout << "elimine par symetrie\n";
+            child.printWH();
         }*/
     };
 
@@ -51,7 +55,7 @@ void BnBSolver::run() {
             //cout << "lb is too high\n";
             continue;
         }*/
-        if(node.lb() > bestCost_ || (node.cost() > bestCost_ && !node.isLeaf())){
+        if(node.lb() >= bestCost_ || (node.cost() >= bestCost_ && !node.isLeaf())){
             //cout << "lb is too high for node\n";
             continue;
         }
@@ -189,7 +193,7 @@ void BnBSolver::run() {
             }
         }
 
-        /*if (exploredNodes_ <= 30) {
+        /*if (exploredNodes_ <= 20) {
             cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << node.depth()
                     << ", LB: " << node.lb()
