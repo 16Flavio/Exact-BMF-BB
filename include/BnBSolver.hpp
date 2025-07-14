@@ -14,12 +14,7 @@ struct NodeCompare {
     bool operator()(const BnBNode& a, const BnBNode& b) const {
         if (a.depth() != b.depth())
             return a.depth() < b.depth(); 
-        return a.cost() > b.cost();
-
-        /*if (a.lb() != b.lb()){
-            return a.lb() > b.lb();
-        }
-        return a.depth() < b.depth();*/
+        return a.lb() > b.lb();
     }
 };
 

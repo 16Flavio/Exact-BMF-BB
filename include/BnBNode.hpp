@@ -33,19 +33,19 @@ class BnBNode {
     double computeGurobiLB() const;
     int computePartialCost() const;
 
-    static inline GRBEnv* sharedEnv = nullptr;
-    static inline GRBModel* sharedModel = nullptr;
-    static inline vector<vector<GRBVar>> Wc, Hc, Z, D;
-    static inline bool modelInitialized = false;
-    static inline int cached_m = 0, cached_n = 0, cached_r = 0;
-    vector<vector<double>> lastW_;
-    vector<vector<double>> lastH_;
+    static GRBEnv* sharedEnv;
+    static GRBModel* relaxedModel;
+    static bool modelInitialized;
+    static vector<vector<GRBVar>> W_vars;
+    static vector<vector<GRBVar>> H_vars;
+    static vector<vector<GRBVar>> Z_vars;
+    static vector<vector<GRBVar>> D_vars;
+    static vector<vector<vector<GRBVar>>> T_vars;
+
+    static void initializeRelaxedModel(const BMFInstance* instance);
+    void updateModelBounds() const;
 
     static inline double timeLimit_ = 0.0;
-
-    static inline GRBModel* sharedModel_halfleafH = nullptr;
-    static inline GRBModel* sharedModel_halfleafW = nullptr;
-    static inline vector<vector<GRBVar>> Whalf, Hhalf, Zhalf, Dhalf;
 
 public:
 
@@ -66,7 +66,7 @@ public:
     H_mask_.assign(wordCountH(), 0ULL);
     
     if (!modelInitialized) {
-        initializeGurobiModel();
+        initializeRelaxedModel(instance_);
         modelInitialized = true;
     }
 
@@ -85,9 +85,7 @@ public:
           W_mask_(other.W_mask_),
           H_values_(other.H_values_),
           H_mask_(other.H_mask_),
-          Xtilde_(other.Xtilde_),
-          lastH_(other.lastH_),
-          lastW_(other.lastW_)
+          Xtilde_(other.Xtilde_)
     {
         int countW = 0, countH = 0;
         bool possible = true;
@@ -273,8 +271,6 @@ public:
     double lb() const{return lb_;};
 
     int cost() const{return cost_;};
-
-    void initializeGurobiModel() const;
 
     void printWH() const {
         cout << "W matrix (" << m_ << " x " << r_ << "):\n";

@@ -56,7 +56,7 @@ void BnBSolver::run() {
             continue;
         }*/
         if(node.lb() >= bestCost_ || (node.cost() >= bestCost_ && !node.isLeaf())){
-            //cout << "lb is too high for node\n";
+            cout << "lb is too high for node, lb = " << node.lb() << "\n";
             continue;
         }
 
@@ -68,8 +68,6 @@ void BnBSolver::run() {
                 bestSolutions_.clear();
                 cout << "Leaf found with cost of " << cost << "\n";
                 cout << "Actual best cost:" << bestCost_ << "\n";
-            }
-            if (cost == bestCost_) {
                 Solution sol;
                 sol.cost = cost;
                 sol.W.resize(m * r);
@@ -193,7 +191,7 @@ void BnBSolver::run() {
             }
         }
 
-        /*if (exploredNodes_ <= 20) {
+        /*if (exploredNodes_ % 100 == 0) {
             cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << node.depth()
                     << ", LB: " << node.lb()
@@ -201,7 +199,7 @@ void BnBSolver::run() {
                     << ", BestCost: " << bestCost_
                     << ", QueueSize: " << pq.size()
                     << "\n";
-            node.printWH();
+            //node.printWH();
         }*/
 
         exploredNodes_ ++;
