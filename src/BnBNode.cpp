@@ -66,7 +66,7 @@ void BnBNode::initializeRelaxedModel(const BMFInstance* instance, int actualBest
             D_vars[i][j] = relaxedModel->addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS);
             for (int k = 0; k < r; ++k) {
                     T_vars[i][k][j] = relaxedModel->addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS);
-                }
+            }
         }
     }
 
@@ -84,10 +84,10 @@ void BnBNode::initializeRelaxedModel(const BMFInstance* instance, int actualBest
         for (int j = 0; j < n; ++j) {
             GRBLinExpr sumT = 0;
             for (int k = 0; k < r; ++k) {
-                relaxedModel->addConstr(Z_vars[i][j] >= T_vars[i][k][j]);
                 sumT += T_vars[i][k][j];
             }
             relaxedModel->addConstr(Z_vars[i][j] <= sumT);
+            relaxedModel->addConstr(Z_vars[i][j] >= sumT*(1.0/r));
         }
     }
 
