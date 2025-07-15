@@ -3,6 +3,7 @@
 #include <vector>
 #include <stdexcept>
 #include <math.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -15,7 +16,7 @@ vector<vector<GRBVar>> BnBNode::Z_vars;
 vector<vector<GRBVar>> BnBNode::D_vars;
 vector<vector<vector<GRBVar>>> BnBNode::T_vars;
 
-void BnBNode::initializeRelaxedModel(const BMFInstance* instance){
+void BnBNode::initializeRelaxedModel(const BMFInstance* instance, int actualBestCost){
     if (modelInitialized) return;
     
     const Matrix &X = instance->getMatrix();
@@ -105,6 +106,12 @@ void BnBNode::initializeRelaxedModel(const BMFInstance* instance){
 
     relaxedModel->setObjective(obj, GRB_MINIMIZE);
     
+    if(actualBestCost < numeric_limits<int>::max()){
+        double cutoff = actualBestCost - 0.5;
+        relaxedModel->set(GRB_DoubleParam_Cutoff, cutoff);
+        relaxedModel->set(GRB_DoubleParam_BestBdStop, cutoff);
+    }
+
     relaxedModel->update();
     relaxedModel->set(GRB_IntParam_DualReductions, 0);
     modelInitialized = true;
@@ -186,24 +193,40 @@ int BnBNode::computePartialCost() const {
 }
 
 bool BnBNode::checkSymmetry() const {
-    vector<pair<int, int>> column_ranges(r_);
-    
-    for (int k = 0; k < r_; k++) {
-        int fixed_sum = 0;
-        int free_count = 0;
-        for (int i = 0; i < m_; i++) {
-            if (isFixedW(i, k)) {
-                fixed_sum += getW(i, k);
-            } else {
-                free_count++;
-            }
+    int maxRow = -1;
+    for (int i = 0; i < m_; ++i) {
+        bool allFixed = true;
+        for (int k = 0; k < r_; ++k) {
+            if (!isFixedW(i, k)) { allFixed = false; break; }
         }
-        column_ranges[k] = {fixed_sum, fixed_sum + free_count};
+        if (allFixed) maxRow = i;
+        else break;
+    }
+    int maxCol = -1;
+    for (int j = 0; j < n_; ++j) {
+        bool allFixed = true;
+        for (int k = 0; k < r_; ++k) {
+            if (!isFixedH(k, j)) { allFixed = false; break; }
+        }
+        if (allFixed) maxCol = j;
+        else break;
     }
 
-    for (int k = 0; k < r_ - 1; k++) {
-        if (column_ranges[k].second < column_ranges[k+1].first) {
-            return false;  
+    int depth = min(maxRow, maxCol);
+    if (depth < 0) 
+        return true; 
+
+    vector<vector<int>> prefix(r_, vector<int>(2 * (depth + 1)));
+    for (int k = 0; k < r_; ++k) {
+        for (int i = 0; i <= depth; ++i)
+            prefix[k][i] = getW(i, k);
+        for (int j = 0; j <= depth; ++j)
+            prefix[k][depth + 1 + j] = getH(k, j);
+    }
+
+    for (int k = 0; k + 1 < r_; ++k) {
+        if (prefix[k] < prefix[k+1]) {
+            return false;
         }
     }
     return true;

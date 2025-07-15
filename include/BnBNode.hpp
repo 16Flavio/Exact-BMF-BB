@@ -15,7 +15,7 @@ using AssignVec = vector<int8_t>;
 
 class BnBNode {
     const BMFInstance *instance_;
-    int r_, m_, n_, depth_, variableFreeW_, variableFreeH_;
+    int r_, m_, n_, depth_, variableFreeW_, variableFreeH_, actualBestCost_;
     double lb_;
     int cost_;
     //AssignVec assignments_;
@@ -42,7 +42,7 @@ class BnBNode {
     static vector<vector<GRBVar>> D_vars;
     static vector<vector<vector<GRBVar>>> T_vars;
 
-    static void initializeRelaxedModel(const BMFInstance* instance);
+    static void initializeRelaxedModel(const BMFInstance* instance, int actualBestCost);
     void updateModelBounds() const;
 
     static inline double timeLimit_ = 0.0;
@@ -58,7 +58,8 @@ public:
           cost_(0),
           variableFreeW_(m_*r_),
           variableFreeH_(n_*r_),
-          Xtilde_(m_, vector<int>(n_, -1))
+          Xtilde_(m_, vector<int>(n_, -1)),
+          actualBestCost_(numeric_limits<int>::max())
 {
     W_values_.assign(wordCountW(), 0ULL);
     W_mask_.assign(wordCountW(), 0ULL);
@@ -66,7 +67,7 @@ public:
     H_mask_.assign(wordCountH(), 0ULL);
     
     if (!modelInitialized) {
-        initializeRelaxedModel(instance_);
+        initializeRelaxedModel(instance_, actualBestCost_);
         modelInitialized = true;
     }
 
@@ -74,7 +75,7 @@ public:
     //lb_ = computeLowerBound();
 }
 
-    BnBNode(const BnBNode &other, const vector<pair<int, int>>& assignments)
+    BnBNode(const BnBNode &other, const vector<pair<int, int>>& assignments, int bestCost_)
         : instance_(other.instance_),
           r_(other.r_), m_(other.m_), n_(other.n_),
           depth_(other.depth_),  
@@ -85,7 +86,8 @@ public:
           W_mask_(other.W_mask_),
           H_values_(other.H_values_),
           H_mask_(other.H_mask_),
-          Xtilde_(other.Xtilde_)
+          Xtilde_(other.Xtilde_),
+          actualBestCost_(bestCost_)
     {
         int countW = 0, countH = 0;
         bool possible = true;
@@ -213,8 +215,8 @@ public:
         //lb_ = computeLowerBound();
     }
 
-    BnBNode branchMultiple(const vector<pair<int, int>>& assignments) const {
-        return BnBNode(*this, assignments);
+    BnBNode branchMultiple(const vector<pair<int, int>>& assignments, int bestCost_) const {
+        return BnBNode(*this, assignments, bestCost_);
     }
 
     bool checkSymmetry() const;

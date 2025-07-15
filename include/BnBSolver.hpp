@@ -7,6 +7,7 @@
 #include <chrono>
 #include <vector>
 #include <functional>
+#include <gurobi_c++.h>
 
 using namespace std;
 
@@ -27,6 +28,14 @@ class BnBSolver {
     int selectFirstFree(const BnBNode &node) const;
     vector<pair<uint64_t, uint64_t>> generate_binary_pairs(const int &r) const ;
 
+    static GRBEnv sharedHalfLeafEnv_;
+    static GRBModel sharedHalfLeafModel_;
+    static bool halfLeafModelInitialized_;
+    void initializeHalfLeafModel() const;
+    Solution solveHalfLeaf_Gurobi(const BnBNode& node, bool solveW) const;
+    Solution solveHalfLeafW_Gurobi(const BnBNode& node) const;
+    Solution solveHalfLeafH_Gurobi(const BnBNode& node) const;
+
 public:
     
     BnBSolver(const BMFInstance &instance, const Solution &initialSol);
@@ -38,5 +47,4 @@ public:
     double getElapsedTime() const;
 
     int getExploredNodes() const { return exploredNodes_;}
-    
 };

@@ -10,6 +10,8 @@ BnBSolver::BnBSolver(const BMFInstance &instance, const Solution &initialSol)
 
 void BnBSolver::run() {
 
+    initializeHalfLeafModel();
+
     cout << "Start!\n";
 
     int m = instance_.getMatrix().numRows();
@@ -24,7 +26,7 @@ void BnBSolver::run() {
     pq.push(BnBNode(instance_)); 
 
     auto push_if_valid = [&](const BnBNode& child) {
-        if (!(child.lb() >= bestCost_ || (child.cost() >= bestCost_ && !child.isLeaf())) && child.checkSymmetry()){  
+        if (!(child.lb() >= bestCost_ || (child.cost() >= bestCost_ && !child.isLeaf())) && child.checkSymmetry()){ 
             pq.push(child);
         }/*else if(child.depth() == 7){
             cout << "[#Explored: " << exploredNodes_
@@ -56,7 +58,7 @@ void BnBSolver::run() {
             continue;
         }*/
         if(node.lb() >= bestCost_ || (node.cost() >= bestCost_ && !node.isLeaf())){
-            cout << "lb is too high for node, lb = " << node.lb() << "\n";
+            //cout << "lb is too high for node, lb = " << node.lb() << "\n";
             continue;
         }
 
@@ -82,8 +84,10 @@ void BnBSolver::run() {
             }
             continue;
         }else if (node.isHalfLeaf()) {
+            Solution sol;
             if (node.remainingVariablesW() == 0) {
-                for (int j = 0; j < n; j++) {
+                sol = solveHalfLeafH_Gurobi(node);
+                /*for (int j = 0; j < n; j++) {
                     if (!node.isFixedHColumn(j)) {
                         for (const auto& possibility : possibilities) {
                             uint64_t b = possibility.second;
@@ -102,21 +106,10 @@ void BnBSolver::run() {
                         }
                         break;
                     }
-                }
-                /*Solution sol = node.computeHalfWFixed();
-                cout << sol << "\n";
-                int cost = sol.cost;
-                if (cost < bestCost_) {
-                    bestCost_ = cost;
-                    bestSolutions_.clear();
-                    cout << "Leaf found with cost of " << cost << "\n";
-                    cout << "Actual best cost:" << bestCost_ << "\n";
-                }
-                if (cost == bestCost_) {
-                    bestSolutions_.push_back(sol);
                 }*/
             }else if(node.remainingVariablesH() == 0){
-                for (int i = 0; i < m; i++) {
+                sol = solveHalfLeafW_Gurobi(node);
+                /*for (int i = 0; i < m; i++) {
                     if (!node.isFixedWRow(i)) {
                         for (const auto& possibility : possibilities) {
                             uint64_t a = possibility.first;
@@ -135,19 +128,14 @@ void BnBSolver::run() {
                         }
                         break;
                     }
-                }
-                /*Solution sol = node.computeHalfHFixed();
-                cout << sol << "\n";
-                int cost = sol.cost;
-                if (cost < bestCost_) {
-                    bestCost_ = cost;
-                    bestSolutions_.clear();
-                    cout << "Leaf found with cost of " << cost << "\n";
-                    cout << "Actual best cost:" << bestCost_ << "\n";
-                }
-                if (cost == bestCost_) {
-                    bestSolutions_.push_back(sol);
                 }*/
+            }
+            if (sol.cost < bestCost_) {
+                bestCost_ = sol.cost;
+                bestSolutions_.clear();
+                bestSolutions_.push_back(sol);
+                cout << "Leaf found with cost of " << sol.cost << "\n";
+                cout << "Actual best cost:" << bestCost_ << "\n";
             }
         }
         else {
@@ -177,7 +165,7 @@ void BnBSolver::run() {
                 }
 
                 if (!assignments.empty()) {
-                    BnBNode child = node.branchMultiple(assignments);
+                    BnBNode child = node.branchMultiple(assignments, bestCost_);
                     /*cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << child.depth()
                     << ", LB: " << child.lb()
@@ -191,7 +179,7 @@ void BnBSolver::run() {
             }
         }
 
-        /*if (exploredNodes_ % 100 == 0) {
+        if (exploredNodes_ % 100 == 0) {
             cout << "[#Explored: " << exploredNodes_
                     << "] Depth: " << node.depth()
                     << ", LB: " << node.lb()
@@ -200,7 +188,7 @@ void BnBSolver::run() {
                     << ", QueueSize: " << pq.size()
                     << "\n";
             //node.printWH();
-        }*/
+        }
 
         exploredNodes_ ++;
 
@@ -304,4 +292,149 @@ const vector<Solution>& BnBSolver::getBestSolutions() const {
 
 double BnBSolver::getElapsedTime() const {
     return elapsedMs_;
+}
+
+GRBEnv BnBSolver::sharedHalfLeafEnv_;
+GRBModel BnBSolver::sharedHalfLeafModel_(sharedHalfLeafEnv_);
+bool BnBSolver::halfLeafModelInitialized_ = false;
+
+void BnBSolver::initializeHalfLeafModel() const {
+    if (halfLeafModelInitialized_) return;
+    
+    sharedHalfLeafEnv_.set(GRB_IntParam_OutputFlag, 0);
+    sharedHalfLeafModel_.set(GRB_IntParam_Presolve, 1);
+    sharedHalfLeafModel_.set(GRB_IntParam_Threads, 1);
+    halfLeafModelInitialized_ = true;
+}
+
+Solution BnBSolver::solveHalfLeaf_Gurobi(const BnBNode& node, bool solveW) const {
+    const Matrix& X = instance_.getMatrix();
+    int m = X.numRows();
+    int n = X.numCols();
+    int r = instance_.getRank();
+    Solution sol;
+    sol.cost = numeric_limits<int>::max();
+    
+    try {
+        if (!halfLeafModelInitialized_) {
+            initializeHalfLeafModel();
+        }
+
+        sharedHalfLeafModel_.set(GRB_IntParam_OutputFlag, 0);
+        //sharedHalfLeafModel_.reset();
+        vector<vector<GRBVar>> vars;
+        vector<vector<GRBVar>> Z_vars(m, vector<GRBVar>(n));
+
+        if (solveW) {
+            vars.resize(m, vector<GRBVar>(r));
+            for (int i = 0; i < m; i++) {
+                for (int k = 0; k < r; k++) {
+                    vars[i][k] = sharedHalfLeafModel_.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+                }
+            }
+        } else {
+            vars.resize(r, vector<GRBVar>(n));
+            for (int k = 0; k < r; k++) {
+                for (int j = 0; j < n; j++) {
+                    vars[k][j] = sharedHalfLeafModel_.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+                }
+            }
+        }
+
+        if (solveW) {
+            for (int i = 0; i < m; i++) {
+                for (int k = 0; k < r; k++) {
+                    if (node.isFixedW(i, k)) {
+                        sharedHalfLeafModel_.addConstr(vars[i][k] == node.getW(i, k));
+                    }
+                }
+            }
+        } else {
+            for (int k = 0; k < r; k++) {
+                for (int j = 0; j < n; j++) {
+                    if (node.isFixedH(k, j)) {
+                        sharedHalfLeafModel_.addConstr(vars[k][j] == node.getH(k, j));
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                GRBLinExpr expr = 0;
+                for (int k = 0; k < r; k++) {
+                    if (solveW) {
+                        expr += vars[i][k] * (node.getH(k, j) ? 1.0 : 0.0);
+                    } else {
+                        expr += (node.getW(i, k) ? 1.0 : 0.0) * vars[k][j];
+                    }
+                }
+                Z_vars[i][j] = sharedHalfLeafModel_.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+                sharedHalfLeafModel_.addConstr(Z_vars[i][j] <= expr);
+                sharedHalfLeafModel_.addConstr(Z_vars[i][j] >= (1.0/r) * expr); 
+            }
+        }
+
+        GRBLinExpr obj = 0;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if (X.get(i, j)) {
+                    obj += 1 - Z_vars[i][j]; 
+                } else {
+                    obj += Z_vars[i][j]; 
+                }
+            }
+        }
+        sharedHalfLeafModel_.setObjective(obj, GRB_MINIMIZE);
+
+        if(bestCost_ < numeric_limits<int>::max()){
+            double cutoff = bestCost_ - 0.5;
+            sharedHalfLeafModel_.set(GRB_DoubleParam_Cutoff, cutoff);
+            sharedHalfLeafModel_.set(GRB_DoubleParam_BestBdStop, cutoff);
+        }
+
+        sharedHalfLeafModel_.optimize();
+
+        if (sharedHalfLeafModel_.get(GRB_IntAttr_Status) == GRB_OPTIMAL) {
+            sol.cost = static_cast<int>(sharedHalfLeafModel_.get(GRB_DoubleAttr_ObjVal));
+            if (solveW) {
+                sol.W.resize(m * r);
+                for (int i = 0; i < m; i++) {
+                    for (int k = 0; k < r; k++) {
+                        sol.W[i * r + k] = (vars[i][k].get(GRB_DoubleAttr_X) > 0.5);
+                    }
+                }
+                sol.H.resize(r * n);
+                for (int k = 0; k < r; k++) {
+                    for (int j = 0; j < n; j++) {
+                        sol.H[k * n + j] = (node.getH(k, j) == 1);
+                    }
+                }
+            } else {
+                sol.H.resize(r * n);
+                for (int k = 0; k < r; k++) {
+                    for (int j = 0; j < n; j++) {
+                        sol.H[k * n + j] = (vars[k][j].get(GRB_DoubleAttr_X) > 0.5);
+                    }
+                }
+                sol.W.resize(m * r);
+                for (int i = 0; i < m; i++) {
+                    for (int k = 0; k < r; k++) {
+                        sol.W[i * r + k] = (node.getW(i, k) == 1);
+                    }
+                }
+            }
+        }
+    } catch (GRBException& e) {
+        cerr << "Gurobi error: " << e.getMessage() << endl;
+    }
+    return sol;
+}
+
+Solution BnBSolver::solveHalfLeafW_Gurobi(const BnBNode& node) const {
+    return solveHalfLeaf_Gurobi(node, true);
+}
+
+Solution BnBSolver::solveHalfLeafH_Gurobi(const BnBNode& node) const {
+    return solveHalfLeaf_Gurobi(node, false);
 }
